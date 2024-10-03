@@ -1,9 +1,6 @@
-FROM node: 16.17.0
+FROM python:3.9 
 
-WORKDIR /usr/src/app
+WORKDIR /learnmate
 
-COPY . .
-
-EXPOSE 3000
-
-CMD ["npm", "run", "start"]
+RUN pip install upgrade pip && pip install -r requeriments.txt
+CMD ["python", "aa.py"]
