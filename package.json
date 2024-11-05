@@ -1,0 +1,11 @@
+{
+  "type": "module",
+  "dependencies": {
+    "@huggingface/inference": "^2.8.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "llamaindex": "^0.8.3",
+    "ollama": "^0.5.9"
+  }
+}
