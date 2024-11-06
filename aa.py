@@ -22,7 +22,7 @@ def chat():
         )
         documents = loader.load_data()
 
-        inference_api_key = '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'
+        inference_api_key = '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'
         embeddings = HuggingFaceInferenceAPIEmbeddings(
             api_key=inference_api_key, model_name="BAAI/bge-small-en-v1.5"
         )

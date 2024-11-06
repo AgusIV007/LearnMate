@@ -42,49 +42,76 @@
 //   chatBox.scrollTop = chatBox.scrollHeight;
 // }
 
-import ollama from "ollama";
+// Settings.embedModel = new HuggingFaceEmbedding("BAAI/bge-small-en-v1.5");
+
+// const hf = new HfInference("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");
+
+// // Cargar documentos y crear el índice de búsqueda
+// async function createIndex() {
+//   let loader = new SimpleDirectoryReader();
+//   let documents = await loader.loadData({
+//     directoryPath: "./test",
+//     recursive: true,
+//     requiredExts: [".txt"],
+//   });
+//   const documentsWithEmbeddings = [];
+
+//   for (let doc of documents) {
+//     // Extraer el embedding de Hugging Face
+//     const embedding = await hf.featureExtraction({
+//       model: "BAAI/bge-small-en-v1.5",
+//       inputs: doc.text,
+//     });
+
+//     // Crear un objeto de documento con el texto y el embedding
+//     const documentWithEmbedding = new Document({
+//       text: doc.text,
+//       embedding: embedding, // Agregar el embedding al documento
+//     });
+
+//     // Guardar el documento con embedding
+//     documentsWithEmbeddings.push(documentWithEmbedding);
+//   }
+//   console.log(documents);
+//   // Crear el índice usando los documentos con embeddings en los metadatos y el tamaño de fragmento
+//   return await VectorStoreIndex.fromDocuments(documentsWithEmbeddings);
+// }
+
+// // Endpoint principal de chat
+
+import ollama, { Ollama } from "ollama";
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import { SimpleDirectoryReader, VectorStoreIndex, Document } from "llamaindex";
-import { HfInference } from "@huggingface/inference"; // Importar Hugging Face Inference API
+
+import {
+  SimpleDirectoryReader,
+  VectorStoreIndex,
+  Document,
+  Settings,
+  HuggingFaceEmbedding,
+  PromptHelper,
+  DEFAULT_CONTEXT_WINDOW,
+} from "llamaindex";
+import { HfInference } from "@huggingface/inference";
+
+Settings.chunkSize = 4096;
+Settings.llm = new Ollama({ model: "llama3.1:latest" });
+
+// Configura los settings para desactivar OpenAI y usar Hugging Face
+import ollama, { Ollama } from "ollama";
+import "dotenv/config";
+import express from "express";
+import cors from "cors";
+
+Settings.chunkSize = 4096;
+Settings.llm = new Ollama({ model: "llama3.1:latest" });
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = 3000;
 app.use(cors());
 app.use(express.json());
 
-const hf = new HfInference("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"); // Clave de API para Hugging Face
-
-// Cargar documentos y crear el índice de búsqueda
-const embeddingStorage = {}; // Objeto para almacenar embeddings externamente
-
-async function createIndex() {
-  const loader = new SimpleDirectoryReader();
-  const rawDocuments = await loader.loadData({
-    directoryPath: "./test",
-    recursive: true,
-    requiredExts: [".txt"],
-  });
-
-  // Asegurarse de que cada documento esté en el formato correcto
-  const documents = rawDocuments.map((doc) => new Document({ text: doc.text }));
-
-  // Generar embeddings con Hugging Face
-  const embeddings = await Promise.all(
-    documents.map(async (doc) => {
-      const embedding = await hf.featureExtraction({
-        model: "BAAI/bge-small-en-v1.5",
-        inputs: doc.toJSON(),
-      });
-      return { ...doc, embedding };
-    })
-  );
-  // Crear el índice usando los documentos procesados y los embeddings
-  return await VectorStoreIndex.fromDocuments(embeddings);
-}
-
-// Endpoint principal de chat
 app.post("/chat", async (req, res) => {
   try {
     const userQuery = req.body.message;
@@ -94,14 +121,25 @@ app.post("/chat", async (req, res) => {
 
     // Crear índice y motor de consulta
     const index = await createIndex();
+
     const llama = await ollama.create({
       model: "llama3.1:latest",
       modelfile: `
-      FROM llama3.1
+      FROM llama3.1:8b
+      PARAMETER num_ctx 32768
       SYSTEM "Eres un asistente de estudio cuyo propósito es enseñar a los usuarios."
       `,
     });
-    const queryEngine = index.asQueryEngine({ llm: llama });
+
+    console.log("Index:", index);
+    console.log("LLM:", llama);
+
+    // Eliminar o ajustar esta parte de PromptHelper
+    // PromptHelper.fromLLMMetadata({ contextWindow: 32768 }); // Eliminar si no es necesario
+
+    const queryEngine = index.asQueryEngine({
+      llm: llama,
+    });
 
     // Realizar la consulta al motor
     const result = await queryEngine.query({ query: userQuery });
@@ -117,5 +155,10 @@ app.post("/chat", async (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`http://localhost:${port}`);
+  console.log(`Server running on port ${port}`);
 });
+
+// Llamar a la función para crear el índice
+// createIndex().catch((error) => {
+//   console.error("Error al crear el índice:", error);
+// });
